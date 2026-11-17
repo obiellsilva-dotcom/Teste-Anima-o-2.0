@@ -64,6 +64,7 @@ export function aplicarPose(personagem, pose, { base = null } = {}) {
 
   // Raiz
   const b = base || { pos: rep.__raiz.pos, rotY: rep.__raiz.rot.y };
+  personagem.userData.chao = b.pos.y;   // altura do apoio (chão, colchão...) para a sombra
   const r = pose.raiz || {};
   const pos = r.pos || [0, 0, 0];
   personagem.position.set(b.pos.x + pos[0], b.pos.y + pos[1], b.pos.z + pos[2]);
@@ -88,7 +89,7 @@ export function atualizarSombra(personagem, escala = [1, 1]) {
   personagem.updateWorldMatrix(true, true);
   const quadril = personagem.userData.juntas.quadril;
   quadril.getWorldPosition(_v);
-  _v.y = 0.003;
+  _v.y = (personagem.userData.chao ?? 0) + 0.02;
   personagem.worldToLocal(_v);
   sombra.position.copy(_v);
   personagem.getWorldQuaternion(_q).invert();

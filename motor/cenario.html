@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Cenário</title>
+<link rel="icon" href="data:,">
+<script>addEventListener("error", e => { window.__erroFatal = e.message; }); addEventListener("unhandledrejection", e => { window.__erroFatal = String(e.reason && e.reason.message || e.reason); });</script>
+<style>html, body { margin: 0; background: #000; } canvas { display: block; } #gl { display: none; }</style>
+<script type="importmap">
+{ "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="tela"></canvas>
+<canvas id="gl"></canvas>
+<script type="module">
+// Cenário com (opcionalmente) personagem e efeito. Base das cenas 3D dos vídeos.
+// Parâmetros:
+//   cenario=quarto            (cenarios/<nome>/<nome>.js)
+//   camera=geral              (câmeras da FICHA do cenário)
+//   personagem=senhor         (opcional; personagens/<nome>/<nome>.js — ficha obrigatória)
+//   marca=centro  pose=parado  expressao=feliz
+//   efeito=absorcao           (opcional; efeitos/<nome>/<nome>.js)
+//   t=0                       (instante em segundos do primeiro quadro)
+//   duracao=1  w=1080  h=1920
+import * as THREE from 'three';
+import { RIM, CONTORNO } from '/motor/toon.js';
+import { aplicarPose } from '/motor/poses.js';
+import { PALETA as P } from '/motor/paleta.js';
+
+const q = new URLSearchParams(location.search);
+const W = parseInt(q.get('w') || '1080', 10), H = parseInt(q.get('h') || '1920', 10);
+const T0 = parseFloat(q.get('t') || '0');
+const nomeCenario = q.get('cenario') || 'quarto';
+
+const modCen = await import(`/cenarios/${nomeCenario}/${nomeCenario}.js`);
+const FC = modCen.FICHA;
+const cam = FC.cameras[q.get('camera') || Object.keys(FC.cameras)[0]];
+if (!cam) throw new Error(`Câmera inexistente: ${q.get('camera')}. Câmeras: ${Object.keys(FC.cameras).join(', ')}`);
+
+const tela = document.getElementById('tela');
+tela.width = W; tela.height = H;
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+renderer.setClearColor(0x000000, 0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+CONTORNO.uResolucao.value.set(W, H);
+CONTORNO.uEspessura.value = 2;
+
+const cena = new THREE.Scene();
+const cenario = modCen.montar(cena);
+
+// Contra-luz (rim) do cenário
+const rimBase = { cor: new THREE.Color(FC.rim?.cor || '#7fa4d9'), forca: 0.85, limiar: 0.8 };
+RIM.uRimDir.value.set(...(FC.rim?.dir || [1, 1.2, -1.5])).normalize();
+
+// Personagem (opcional)
+let personagem = null;
+const nomePers = q.get('personagem');
+if (nomePers) {
+  const modP = await import(`/personagens/${nomePers}/${nomePers}.js`);
+  personagem = modP.default();
+  const poses = personagem.userData.poses;
+  const nomePose = q.get('pose') || 'parado';
+  const pose = poses[nomePose];
+  if (!pose) throw new Error(`Pose fora da ficha: "${nomePose}". Oficiais: ${Object.keys(poses).join(', ')}`);
+  personagem.userData.rosto.definirExpressao(q.get('expressao') || pose.expressao || modP.FICHA.expressaoPadrao);
+  const marca = FC.marcas[q.get('marca') || Object.keys(FC.marcas)[0]];
+  if (!marca) throw new Error(`Marca inexistente: ${q.get('marca')}`);
+  aplicarPose(personagem, pose, { base: { pos: new THREE.Vector3(...marca.pos), rotY: marca.rotY || 0 } });
+  cena.add(personagem);
+}
+
+// Efeito (opcional), preso aos pés do personagem
+let efeito = null;
+const nomeEfeito = q.get('efeito');
+if (nomeEfeito) {
+  const modE = await import(`/efeitos/${nomeEfeito}/${nomeEfeito}.js`);
+  let alturaPeito = 2.3;
+  const base = new THREE.Vector3();
+  if (personagem) {
+    personagem.updateWorldMatrix(true, true);
+    personagem.userData.juntas.tronco.getWorldPosition(base);
+    alturaPeito = base.y - (personagem.userData.chao || 0) + 0.85;
+    base.y = personagem.userData.chao || 0;
+  }
+  efeito = modE.default({ alturaPeito });
+  efeito.position.copy(base);
+  cena.add(efeito);
+}
+
+const camera = new THREE.PerspectiveCamera(cam.fov || 45, W / H, 0.1, 300);
+camera.position.set(...cam.pos);
+camera.lookAt(...cam.alvo);
+
+// ---- 2D: céu/fundo atrás, vinheta e flash na frente
+const ctx = tela.getContext('2d');
+function aleatorio(s) { const x = Math.sin(s * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); }
+function fundo() {
+  const f = FC.fundo || {};
+  const g = ctx.createLinearGradient(0, 0, 0, H * 0.75);
+  g.addColorStop(0, f.topo || P.vazio);
+  g.addColorStop(1, f.base || P.vazio);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  if (f.estrelas) {
+    for (let i = 0; i < f.estrelas; i++) {
+      const x = aleatorio(i) * W, y = aleatorio(i * 1.7) * H * 0.55, r = 1 + aleatorio(i * 2.3) * 2.2;
+      ctx.fillStyle = `rgba(255,255,255,${0.35 + aleatorio(i * 3.1) * 0.5})`;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  if (f.lua) {
+    const x = f.lua.x * W, y = f.lua.y * H;
+    const gl = ctx.createRadialGradient(x, y, 0, x, y, 260);
+    gl.addColorStop(0, 'rgba(143,180,255,0.45)'); gl.addColorStop(1, 'rgba(143,180,255,0)');
+    ctx.fillStyle = gl; ctx.fillRect(x - 260, y - 260, 520, 520);
+    ctx.fillStyle = '#eef3ff';
+    ctx.beginPath(); ctx.arc(x, y, 62, 0, Math.PI * 2); ctx.fill();
+  }
+  if (f.sol) {
+    const x = f.sol.x * W, y = f.sol.y * H;
+    const gs = ctx.createRadialGradient(x, y, 0, x, y, W * 0.7);
+    gs.addColorStop(0, 'rgba(255,240,210,1)'); gs.addColorStop(0.08, 'rgba(255,200,130,0.9)');
+    gs.addColorStop(0.35, 'rgba(255,170,100,0.35)'); gs.addColorStop(1, 'rgba(255,150,90,0)');
+    ctx.fillStyle = gs; ctx.fillRect(0, 0, W, H);
+  }
+}
+function vinheta(forca) {
+  const g = ctx.createRadialGradient(W / 2, H / 2, Math.hypot(W, H) * 0.5 * 0.45, W / 2, H / 2, Math.hypot(W, H) * 0.5);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, `rgba(0,0,0,${forca})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+const corEfeito = new THREE.Color(P.magia);
+window.CENARIO = JSON.parse(JSON.stringify(FC));
+window.VIDEO = { largura: W, altura: H, fps: 30, duracao: parseFloat(q.get('duracao') || '1') };
+window.desenharQuadro = (n) => {
+  const t = T0 + n / 30;
+  cenario.atualizar(t);
+  let aura = 0, flash = 0;
+  if (efeito) ({ aura, flash } = efeito.userData.atualizar(t));
+  RIM.uRimCor.value.copy(rimBase.cor).lerp(corEfeito, aura);
+  RIM.uRimForca.value = rimBase.forca + aura * 0.9;
+  RIM.uRimLimiar.value = rimBase.limiar - aura * 0.2;
+  fundo();
+  renderer.render(cena, camera);
+  ctx.drawImage(renderer.domElement, 0, 0);
+  vinheta(FC.vinheta ?? 0.55);
+  if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fillRect(0, 0, W, H); }
+};
+</script>
+</body>
+</html>

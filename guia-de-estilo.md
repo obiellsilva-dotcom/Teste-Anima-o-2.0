@@ -58,6 +58,41 @@ não de cores novas. Nomes em `snake_case` são os nomes das constantes no códi
 | `magia_funda` | `#167a68` | Tecido/objeto mágico sem brilho |
 | `cristal` | `#a97bff` | Segundo acento (raro: cristais, raridade, item especial) |
 
+### 2.1b Mundo novo, casa e natureza (modo 3D)
+
+Criada para a série "E se você acordasse em um novo mundo com poderes mágicos". Vale para
+qualquer cenário fora da masmorra.
+
+| Nome | Hex | Uso |
+|---|---|---|
+| `madeira` | `#7a5236` | Móveis, tábuas, paredes de madeira |
+| `madeira_escura` | `#4b3122` | Troncos de árvore, portas, molduras, juntas de tábua |
+| `madeira_clara` | `#9c6e47` | Tábuas de destaque (1 em 5), tampos |
+| `parede_quarto` | `#46536e` | Paredes pintadas de interior |
+| `rodape` | `#2c3447` | Rodapé, sombras de interior |
+| `telha` | `#7a3a2c` | Telhados |
+| `folha_escura` | `#1e3a2c` | Copas ao fundo, sombra de folhagem |
+| `folha` | `#2e5a3a` | Copas, arbustos |
+| `folha_clara` | `#4b8048` | Copas de primeiro plano, brotos |
+| `grama` | `#3a6234` | Chão de grama |
+| `terra` | `#5e4330` | Trilhas, terra batida |
+| `ceu_noite` | `#0f1a2c` | Céu noturno |
+| `ceu_alto` | `#1d3354` | Topo do céu ao amanhecer/entardecer |
+| `ceu_horizonte` | `#f2a66a` | Horizonte ao amanhecer/entardecer |
+| `sol` | `#ffb867` | Luz do sol baixo (fonte quente dominante ao ar livre) |
+| `lampada` | `#ffc27a` | Luz de abajur/lampião (fonte quente de interior) |
+| `janela_luz` | `#ffd28a` | Vidro de janela acesa (emissivo) |
+| `luar` | `#8fb4ff` | Luz fria da lua (preenchimento/contra-luz à noite) |
+
+Esquema de luz por tipo de cenário (sempre **uma fonte quente dominante + preenchimento frio**):
+
+| Cenário | Fonte quente | Preenchimento frio |
+|---|---|---|
+| Interior à noite | abajur/lampião (`lampada`) | luar pela janela (`luar`) |
+| Ar livre de dia/amanhecer | sol baixo atrás da cena (`sol`), contra-luz | céu (`ceu_alto`) |
+| Exterior à noite | janelas acesas e lampião (`janela_luz`, `lampada`) | lua (`luar`) |
+| Masmorra | brasa (`brasa`) | `ambiente_frio` |
+
 ### 2.2 Personagens
 
 | Nome | Hex | Uso |

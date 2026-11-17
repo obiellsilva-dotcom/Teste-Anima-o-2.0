@@ -17,6 +17,26 @@ export const PALETA = {
   magia_funda: '#167a68',
   cristal: '#a97bff',
 
+  // Mundo novo / casa (3D) — série "E se você acordasse em um novo mundo..."
+  madeira: '#7a5236',
+  madeira_escura: '#4b3122',
+  madeira_clara: '#9c6e47',
+  parede_quarto: '#46536e',
+  rodape: '#2c3447',
+  telha: '#7a3a2c',
+  folha_escura: '#1e3a2c',
+  folha: '#2e5a3a',
+  folha_clara: '#4b8048',
+  grama: '#3a6234',
+  terra: '#5e4330',
+  ceu_noite: '#0f1a2c',
+  ceu_alto: '#1d3354',
+  ceu_horizonte: '#f2a66a',
+  sol: '#ffb867',
+  lampada: '#ffc27a',
+  janela_luz: '#ffd28a',
+  luar: '#8fb4ff',
+
   // Personagens
   pele_1: '#f1c493',
   pele_2: '#d8975f',
