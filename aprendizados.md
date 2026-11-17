@@ -19,3 +19,13 @@
   arredondada; cilindro com tampa e caixa comum abrem buracos nas quinas.
 - Cabelo: calota com borda variável (`geometriaCalota` em `motor/formas.js`). Uma calota simples
   inclinada para trás quase some vista de frente (o topo da esfera fica em escorço).
+- Ficha de personagem: `node motor/gerar_ficha.js <nome>` gera 18 imagens + `ficha.png` numa só
+  sessão do Chrome em ~16 s (abrir o navegador uma vez por imagem levaria ~1 min).
+- Personagem deitado num quadro vertical fica minúsculo de frente. Girar ~50° e subir a câmera
+  (~35°) deixa o corpo na diagonal e ocupa melhor o quadro.
+- Luz pontual do efeito de poder: com intensidade 2,5 tingia o personagem todo de verde; 0,7 com
+  alcance 3 só ilumina mãos e peito.
+- A sombra de contato é filha da raiz: em pose com a raiz girada (caído), `atualizarSombra`
+  (em `motor/poses.js`) recoloca a sombra deitada no chão, sob o quadril.
+- `ShapeGeometry` (boca de riso em D) é plana: precisa sair ~0,01 C da superfície da cabeça para
+  não sumir dentro da curvatura.

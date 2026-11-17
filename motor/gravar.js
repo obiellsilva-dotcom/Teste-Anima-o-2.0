@@ -16,19 +16,7 @@
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const { iniciarServidor } = require('./servidor');
-
-const RAIZ = path.resolve(__dirname, '..');
-
-function carregarPlaywright() {
-  try { return require('playwright'); }
-  catch {
-    for (const p of ['/opt/node-tools/node_modules/playwright', '/opt/npm-tools/node_modules/playwright']) {
-      try { return require(p); } catch {}
-    }
-    throw new Error('Playwright não encontrado');
-  }
-}
+const { abrirNavegador } = require('./navegador');
 
 function args() {
   const a = process.argv.slice(2);
@@ -44,43 +32,17 @@ function args() {
 
 async function main() {
   const o = args();
-  const [arquivo, consulta] = o.pagina.split('?');
-  const relativo = path.relative(RAIZ, path.resolve(arquivo)).split(path.sep).join('/');
-  if (relativo.startsWith('..')) throw new Error('A página precisa estar dentro do projeto: ' + o.pagina);
-
-  const servidor = await iniciarServidor(RAIZ);
-  const { chromium } = carregarPlaywright();
-  const browser = await chromium.launch({
-    executablePath: fs.existsSync('/usr/bin/google-chrome') ? '/usr/bin/google-chrome' : undefined,
-    args: [
-      '--no-sandbox', '--disable-gpu-vsync', '--force-color-profile=srgb',
-      // WebGL por software (SwiftShader): funciona sem GPU e dá o mesmo resultado sempre.
-      '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist',
-    ],
-  });
-  const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
-  page.on('pageerror', e => console.error('Erro na página:', e.message));
-  page.on('console', m => { if (m.type() === 'error' || m.type() === 'warning') console.error('[página]', m.text()); });
-  await page.goto(`${servidor.url}/${relativo}${consulta ? '?' + consulta : ''}`);
-  await page.waitForFunction(() => window.VIDEO && window.desenharQuadro, null, { timeout: 30000 });
-  await page.evaluate(() => document.fonts.ready);
-  const V = await page.evaluate(() => window.VIDEO);
-  await page.setViewportSize({ width: V.largura, height: V.altura });
-
+  const nav = await abrirNavegador();
+  // Caminho da página relativo ao diretório atual.
+  const [arq, consulta] = o.pagina.split('?');
+  const V = await nav.abrir(path.resolve(arq) + (consulta ? '?' + consulta : ''));
   const formato = /\.png$/i.test(o.saida) ? 'image/png' : 'image/jpeg';
-  const capturar = async (n) => {
-    await page.evaluate(async (n) => { await window.desenharQuadro(n); }, n);
-    const url = await page.evaluate((f) => document.querySelector('canvas').toDataURL(f, 0.92), formato);
-    return Buffer.from(url.split(',')[1], 'base64');
-  };
 
   fs.mkdirSync(path.dirname(path.resolve(o.saida)), { recursive: true });
 
-  const encerrar = async () => { await browser.close(); servidor.fechar(); };
-
   if (o.quadro !== null) {
-    fs.writeFileSync(o.saida, await capturar(o.quadro));
-    await encerrar();
+    fs.writeFileSync(o.saida, await nav.capturar(o.quadro, formato));
+    await nav.fechar();
     console.log('Quadro salvo em', o.saida);
     return;
   }
@@ -97,13 +59,13 @@ async function main() {
 
   const t0 = Date.now();
   for (let n = 0; n < total; n++) {
-    const jpg = await capturar(n);
+    const jpg = await nav.capturar(n, 'image/jpeg');
     if (!ff.stdin.write(jpg)) await new Promise(r => ff.stdin.once('drain', r));
     if (n % 30 === 0) process.stdout.write(`\rQuadro ${n + 1}/${total}`);
   }
   ff.stdin.end();
   await fim;
-  await encerrar();
+  await nav.fechar();
   fs.renameSync(temp, o.saida);
   console.log(`\rPronto: ${o.saida} (${total} quadros em ${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }

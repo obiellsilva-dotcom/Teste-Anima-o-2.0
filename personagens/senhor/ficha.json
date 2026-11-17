@@ -1,0 +1,124 @@
+{
+  "nome": "senhor",
+  "titulo": "O Senhor",
+  "versao": 1,
+  "descricao": "54 anos. Acordou milionário depois de anos trabalhando. Alegre, cuidadoso, gentil e muito trabalhador.",
+  "regras": [
+    "Use sempre este modelo (personagens/senhor/senhor.js). Nunca recrie, redesenhe ou troque peças.",
+    "Proporção fixa: 3,93 C de altura · cabeça 1 C · barriga 1,33 C de largura · pernas retas.",
+    "Cores fixas: pele #d8975f · cabelo/sobrancelhas #ebe7e0 · camisa #e3d5b3 · calça #3f5d7d · couro #3e2a20 · ouro #d9a53a.",
+    "Só as 8 expressões e as 6 poses desta ficha. Poses novas: criar em poses.js e regerar a ficha.",
+    "Mãos em luva sem dedos; dedo indicador só na pose \"apontando\". Relógio de ouro sempre no pulso esquerdo.",
+    "Poder: sempre na cor magia #4ff5cf, entre as mãos, com partículas em órbita."
+  ],
+  "cores": [
+    [
+      "Pele",
+      "#d8975f"
+    ],
+    [
+      "Cabelo",
+      "#ebe7e0"
+    ],
+    [
+      "Camisa",
+      "#e3d5b3"
+    ],
+    [
+      "Calça",
+      "#3f5d7d"
+    ],
+    [
+      "Couro",
+      "#3e2a20"
+    ],
+    [
+      "Acento",
+      "#d9a53a"
+    ]
+  ],
+  "vistas": [
+    {
+      "arquivo": "vistas/frente.png",
+      "titulo": "Frente"
+    },
+    {
+      "arquivo": "vistas/tres_quartos.png",
+      "titulo": "3/4"
+    },
+    {
+      "arquivo": "vistas/perfil.png",
+      "titulo": "Perfil"
+    },
+    {
+      "arquivo": "vistas/costas.png",
+      "titulo": "Costas"
+    }
+  ],
+  "expressoes": [
+    {
+      "arquivo": "expressoes/neutro.png",
+      "titulo": "neutro"
+    },
+    {
+      "arquivo": "expressoes/feliz.png",
+      "titulo": "feliz"
+    },
+    {
+      "arquivo": "expressoes/espanto.png",
+      "titulo": "espanto"
+    },
+    {
+      "arquivo": "expressoes/medo.png",
+      "titulo": "medo"
+    },
+    {
+      "arquivo": "expressoes/raiva.png",
+      "titulo": "raiva"
+    },
+    {
+      "arquivo": "expressoes/determinado.png",
+      "titulo": "determinado"
+    },
+    {
+      "arquivo": "expressoes/cansado.png",
+      "titulo": "cansado"
+    },
+    {
+      "arquivo": "expressoes/rindo.png",
+      "titulo": "rindo"
+    }
+  ],
+  "poses": [
+    {
+      "arquivo": "poses/parado.png",
+      "titulo": "Parado",
+      "sub": "feliz"
+    },
+    {
+      "arquivo": "poses/andando.png",
+      "titulo": "Andando",
+      "sub": "feliz"
+    },
+    {
+      "arquivo": "poses/correndo.png",
+      "titulo": "Correndo",
+      "sub": "determinado"
+    },
+    {
+      "arquivo": "poses/apontando.png",
+      "titulo": "Apontando",
+      "sub": "feliz"
+    },
+    {
+      "arquivo": "poses/poder.png",
+      "titulo": "Soltando poder",
+      "sub": "determinado"
+    },
+    {
+      "arquivo": "poses/caido.png",
+      "titulo": "Caído",
+      "sub": "cansado"
+    }
+  ]
+}

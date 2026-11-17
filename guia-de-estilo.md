@@ -177,15 +177,21 @@ espessura de sobrancelha, orelhas etc. Toda exceção fica escrita na ficha dele
 
 Só sobrancelha, boca e altura do olho mudam. Ângulos positivos = ponta de dentro para cima.
 
-| Expressão | Sobrancelha (ângulo · altura) | Olho (escala Y) | Boca |
+As **8 expressões oficiais** (valores em `motor/rosto.js`). Nenhuma outra é usada em vídeo.
+
+| Expressão | Sobrancelha (ângulo · altura) | Olho | Boca |
 |---|---|---|---|
-| `neutro` | 0° · 0 | 1,0 | traço |
-| `bravo` | −22° · −0,03 C | 0,8 | traço 20% mais curto, cantos para baixo 0,01 C |
-| `surpreso` | 0° · +0,05 C | 1,25 | "o": elipse 0,07 × 0,09 C |
-| `feliz` | +8° · +0,02 C | 0,9 | arco sorrindo (meio anel, raio 0,07 C) |
-| `preocupado` | +20° · +0,02 C | 1,0 | traço ondulado ou arco invertido |
-| `determinado` | −12° · −0,02 C | 0,9 | traço 15% mais largo |
-| `piscar` | mantém | 0,1 (4 quadros: 1,0 → 0,1 → 0,1 → 1,0) | mantém |
+| `neutro` | 0° · 0 | normal | traço |
+| `feliz` | +8° · +0,02 C | altura 0,9 | arco sorrindo |
+| `espanto` | 0° · +0,06 C | 1,35× maior | "o" (elipse 0,09 × 0,12 C) |
+| `medo` | +28° · +0,04 C | 1,2× maior | elipse larga e baixa (boca tensa) |
+| `raiva` | −26° · −0,035 C | altura 0,75 | arco invertido (cantos para baixo) |
+| `determinado` | −12° · −0,02 C | altura 0,85 | traço 15% mais largo |
+| `cansado` | +12° · −0,035 C | altura 0,38 (pálpebra pesada) | arco invertido raso |
+| `rindo` | +12° · +0,04 C | fechado em arco (∩) | aberta em D, com faixa de dentes `creme` |
+| _piscar_ | mantém | altura × 0,1 (4 quadros: 1,0 → 0,1 → 0,1 → 1,0) | mantém |
+
+Nomes antigos aceitos pelo código: `bravo` = `raiva`, `surpreso` = `espanto`.
 
 - **Piscar:** a cada 2,5–4,0 s (sorteado por semente fixa), nunca durante fala de destaque.
 - **Fala (sem áudio):** boca alterna entre `fechada` (traço), `meia` (elipse 0,10 × 0,04 C) e
@@ -370,8 +376,39 @@ Para não ser cópia, estas escolhas são deliberadamente outras:
 
 ---
 
-## 13. Checklist antes de aprovar um quadro
+## 13. Fichas oficiais de personagem (obrigatórias)
 
+Todo personagem aprovado tem uma ficha em `personagens/<nome>/`, e ela é **regra obrigatória em
+todos os vídeos**:
+
+```
+personagens/<nome>/
+  <nome>.js      modelo 3D (única fonte do personagem)
+  poses.js       poses oficiais
+  ficha.md       regras, proporções, cores, exceções ao guia
+  ficha.png      imagem-resumo (vistas, expressões, poses, regras)
+  ficha.json     manifesto gerado
+  vistas/  expressoes/  poses/   imagens de referência geradas
+```
+
+1. **Vídeo só usa o modelo da ficha.** Importar `personagens/<nome>/<nome>.js`; nunca recriar,
+   copiar ou ajustar o personagem dentro de um roteiro.
+2. **Só expressões e poses da ficha.** O código recusa nomes fora da ficha
+   (`definirExpressao` e a vitrine dão erro). Animação = transição entre poses da ficha
+   (`misturarPoses` em `motor/poses.js`) mais movimentos secundários (respiração, piscar, fala).
+3. **Mudou o personagem? Mude a ficha primeiro.** Pose nova, roupa nova ou ajuste de proporção:
+   editar o modelo/`poses.js`, subir `versao` na FICHA, rodar
+   `node motor/gerar_ficha.js <nome>` e pedir aprovação da nova `ficha.png` antes de usar.
+4. **Antes de entregar um vídeo**, comparar os quadros com a `ficha.png`: proporção, cores,
+   relógio/acessórios no lado certo, expressão permitida.
+5. **Dedos:** mãos são luvas sem dedos; um personagem pode ter dedo indicador como peça extra,
+   visível só nas poses que a ficha dele indicar (ex.: `apontando`).
+
+---
+
+## 14. Checklist antes de aprovar um quadro
+
+- [ ] Personagens idênticos à ficha (`personagens/<nome>/ficha.png`), com expressão e pose da ficha?
 - [ ] Só cores da seção 2?
 - [ ] Uma fonte quente dominante e sombra fria?
 - [ ] Sombra de contato sob todo personagem?

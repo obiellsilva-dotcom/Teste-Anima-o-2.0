@@ -1,5 +1,6 @@
 // Personagem principal: o senhor (54 anos, acordou milionário depois de anos trabalhando).
-// Ficha e decisões de estilo: personagens/senhor.md
+// FICHA OFICIAL (regra obrigatória): personagens/senhor/ficha.md e ficha.png.
+// Não altere proporções, cores ou peças sem atualizar e reaprovar a ficha.
 //
 // Unidade: C = altura da cabeça = 1. Altura total ≈ 4 C (guia, seção 3.1).
 // Frente do personagem = +Z. Lado E (esquerdo DELE) = +X (direita de quem olha).
@@ -11,13 +12,31 @@
 
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
-import { PALETA as P } from '../motor/paleta.js';
-import { peca, pivo, sombraContato } from '../motor/toon.js';
-import { criarRosto } from '../motor/rosto.js';
-import { geometriaCalota, limiteFrenteLadoTras, geometriaTorno, raioNoPerfil } from '../motor/formas.js';
+import { PALETA as P } from '../../motor/paleta.js';
+import { peca, pivo, sombraContato } from '../../motor/toon.js';
+import { criarRosto } from '../../motor/rosto.js';
+import { geometriaCalota, limiteFrenteLadoTras, geometriaTorno, raioNoPerfil } from '../../motor/formas.js';
+import { registrarRepouso } from '../../motor/poses.js';
+import { POSES } from './poses.js';
+
+export { POSES };
 
 export const FICHA = {
   nome: 'senhor',
+  titulo: 'O Senhor',
+  versao: 1,
+  descricao: '54 anos. Acordou milionário depois de anos trabalhando. Alegre, cuidadoso, gentil e muito trabalhador.',
+  expressaoPadrao: 'feliz',
+  expressoes: ['neutro', 'feliz', 'espanto', 'medo', 'raiva', 'determinado', 'cansado', 'rindo'],
+  poses: Object.keys(POSES),
+  regras: [
+    'Use sempre este modelo (personagens/senhor/senhor.js). Nunca recrie, redesenhe ou troque peças.',
+    'Proporção fixa: 3,93 C de altura · cabeça 1 C · barriga 1,33 C de largura · pernas retas.',
+    'Cores fixas: pele #d8975f · cabelo/sobrancelhas #ebe7e0 · camisa #e3d5b3 · calça #3f5d7d · couro #3e2a20 · ouro #d9a53a.',
+    'Só as 8 expressões e as 6 poses desta ficha. Poses novas: criar em poses.js e regerar a ficha.',
+    'Mãos em luva sem dedos; dedo indicador só na pose "apontando". Relógio de ouro sempre no pulso esquerdo.',
+    'Poder: sempre na cor magia #4ff5cf, entre as mãos, com partículas em órbita.',
+  ],
   altura: 3.93,           // em C, do chão ao topo do cabelo
   pele: P.pele_2,
   cabelo: P.cabelo_branco,
@@ -99,6 +118,7 @@ export function criarSenhor({ expressao = 'feliz' } = {}) {
   // ---------------- Braços: manga dobrada no cotovelo, antebraço à mostra, mão em luva
   const BRACO = 0.58, ANTEBRACO = 0.52;
   const juntasBraco = {};
+  const extras = {};
   for (const [lado, sx] of [['E', 1], ['D', -1]]) {
     const ombro = pivo('ombro' + lado, tronco, sx * 0.49, yp(1.13), 0);
     ombro.add(peca(new THREE.SphereGeometry(0.15, 24, 16), FICHA.camisa, { nome: 'ombro' + lado + '_malha' }));
@@ -122,6 +142,13 @@ export function criarSenhor({ expressao = 'feliz' } = {}) {
     mMao.scale.set(0.95, 1.05, 0.9);
     mMao.position.y = -0.09;
     mao.add(mMao);
+
+    // Dedo indicador: escondido; aparece só em poses que pedem (apontando). Guia 3.1 / ficha.
+    const indicador = peca(new THREE.CapsuleGeometry(0.042, 0.13, 6, 12), FICHA.pele, { nome: 'indicador' + lado });
+    indicador.position.set(0, -0.25, 0.03);
+    indicador.visible = false;
+    mao.add(indicador);
+    extras['indicador' + lado] = indicador;
 
     juntasBraco[lado] = { ombro, cotovelo };
   }
@@ -174,7 +201,7 @@ export function criarSenhor({ expressao = 'feliz' } = {}) {
     sobrancelha: { largura: 0.22, espessura: 0.075, acimaDoOlho: 0.105 },
     boca: { largura: 0.14, espessura: 0.024 },
     alturaBoca: 0.77,
-    cores: { olho: P.olho, sobrancelha: FICHA.cabelo, boca: P.olho },
+    cores: { olho: P.olho, sobrancelha: FICHA.cabelo, boca: P.olho, dentes: P.creme },
   });
   cabeca.add(rosto);
   rosto.userData.definirExpressao(expressao);
@@ -187,6 +214,9 @@ export function criarSenhor({ expressao = 'feliz' } = {}) {
   raiz.traverse(o => { if (o.isGroup && o.name) juntas[o.name] = o; });
   raiz.userData.juntas = juntas;
   raiz.userData.rosto = rosto.userData;
+  raiz.userData.extras = extras;
+  raiz.userData.poses = POSES;
+  registrarRepouso(raiz);
   return raiz;
 }
 

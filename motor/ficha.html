@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Ficha de personagem</title>
+<link rel="icon" href="data:,">
+<script>addEventListener("error", e => { window.__erroFatal = e.message; }); addEventListener("unhandledrejection", e => { window.__erroFatal = String(e.reason && e.reason.message || e.reason); });</script>
+<style>html, body { margin: 0; background: #0b0e14; } canvas { display: block; }</style>
+</head>
+<body>
+<canvas id="tela"></canvas>
+<script type="module">
+// Monta a imagem-resumo da ficha a partir de personagens/<nome>/ficha.json (gerado por
+// motor/gerar_ficha.js). Parâmetro: ?personagem=senhor
+import { PALETA as P } from '/motor/paleta.js';
+
+const nome = new URLSearchParams(location.search).get('personagem') || 'senhor';
+const base = `/personagens/${nome}/`;
+const F = await (await fetch(base + 'ficha.json', { cache: 'no-store' })).json();
+
+const carregar = (arq) => new Promise((ok, erro) => {
+  const im = new Image();
+  im.onload = () => ok(im);
+  im.onerror = () => erro(new Error('Imagem não encontrada: ' + arq));
+  im.src = base + arq + '?t=' + Date.now();
+});
+const imgs = {};
+for (const item of [...F.vistas, ...F.expressoes, ...F.poses]) imgs[item.arquivo] = await carregar(item.arquivo);
+
+const W = 2400, M = 90, LARG = W - 2 * M, GAP = 20;
+const FONTE = 'Inter, "DejaVu Sans", sans-serif';
+const tela = document.getElementById('tela');
+let ctx = tela.getContext('2d');
+
+function quebrar(texto, larguraMax, fonte) {
+  ctx.font = fonte;
+  const palavras = texto.split(' ');
+  const linhas = [];
+  let linha = '';
+  for (const p of palavras) {
+    const teste = linha ? linha + ' ' + p : p;
+    if (ctx.measureText(teste).width > larguraMax && linha) { linhas.push(linha); linha = p; }
+    else linha = teste;
+  }
+  if (linha) linhas.push(linha);
+  return linhas;
+}
+
+// ---------- Layout (medidas)
+const fDesc = `400 34px ${FONTE}`;
+const fRegra = `500 31px ${FONTE}`;
+const linhasDesc = quebrar(F.descricao, 1300, fDesc);
+const linhasRegras = F.regras.map(r => quebrar(r, LARG - 120, fRegra));
+const nRegras = linhasRegras.reduce((s, l) => s + l.length, 0);
+
+const cab = 120 + 150 + linhasDesc.length * 48 + 40;
+const tit = 110;                                // título de seção
+const legenda = 70;
+const vW = (LARG - 3 * GAP) / 4, vH = vW * 16 / 9;
+const eW = (LARG - 3 * GAP) / 4, eH = eW;
+const pW = (LARG - 5 * GAP) / 6, pH = pW * 16 / 9;
+const regrasH = 90 + nRegras * 46 + F.regras.length * 14 + 50;
+const H = Math.round(cab + tit + vH + legenda + tit + 2 * (eH + legenda) + tit + pH + legenda + 40 + regrasH + M);
+
+tela.width = W; tela.height = H;
+ctx = tela.getContext('2d');
+
+function retRedondo(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function celula(item, x, y, w, h) {
+  ctx.save();
+  retRedondo(x, y, w, h, 18);
+  ctx.clip();
+  const im = imgs[item.arquivo];
+  const esc = Math.max(w / im.width, h / im.height);
+  ctx.drawImage(im, x + (w - im.width * esc) / 2, y + (h - im.height * esc) / 2, im.width * esc, im.height * esc);
+  ctx.restore();
+  ctx.strokeStyle = P.pedra_clara;
+  ctx.lineWidth = 2;
+  retRedondo(x, y, w, h, 18);
+  ctx.stroke();
+  ctx.textAlign = 'center';
+  ctx.fillStyle = P.legenda;
+  ctx.font = `800 32px ${FONTE}`;
+  ctx.fillText(item.titulo.toUpperCase(), x + w / 2, y + h + 42);
+  if (item.sub) {
+    ctx.font = `500 22px ${FONTE}`;
+    ctx.fillStyle = P.metal_claro;
+    ctx.fillText(item.sub, x + w / 2, y + h + 66);
+  }
+}
+
+function secao(texto, y, extra = '') {
+  ctx.fillStyle = P.destaque;
+  ctx.fillRect(M, y + 18, 10, 52);
+  ctx.textAlign = 'left';
+  ctx.fillStyle = P.legenda;
+  ctx.font = `900 50px ${FONTE}`;
+  ctx.fillText(texto, M + 30, y + 62);
+  const w = ctx.measureText(texto).width;
+  if (extra) {
+    ctx.font = `500 28px ${FONTE}`;
+    ctx.fillStyle = P.metal_claro;
+    ctx.fillText(extra, M + 30 + w + 24, y + 60);
+  }
+  ctx.fillStyle = P.pedra;
+  ctx.fillRect(M, y + 92, LARG, 2);
+}
+
+function desenhar() {
+  ctx.fillStyle = P.vazio;
+  ctx.fillRect(0, 0, W, H);
+
+  // ---------- Cabeçalho
+  let y = 70;
+  ctx.textAlign = 'left';
+  ctx.fillStyle = P.destaque;
+  ctx.font = `800 32px ${FONTE}`;
+  ctx.fillText(`FICHA OFICIAL  ·  v${F.versao}  ·  REGRA OBRIGATÓRIA EM TODOS OS VÍDEOS`, M, y + 30);
+  ctx.fillStyle = P.legenda;
+  ctx.font = `900 132px ${FONTE}`;
+  ctx.fillText(F.titulo.toUpperCase(), M - 4, y + 175);
+  ctx.font = fDesc;
+  ctx.fillStyle = P.metal_claro;
+  linhasDesc.forEach((l, i) => ctx.fillText(l, M, y + 240 + i * 48));
+
+  // Paleta do personagem (3 x 2)
+  const cx0 = 1500, cw = (W - M - cx0) / 3;
+  F.cores.forEach(([rotulo, cor], i) => {
+    const cx = cx0 + (i % 3) * cw, cy = y + 40 + Math.floor(i / 3) * 130;
+    ctx.fillStyle = cor;
+    retRedondo(cx, cy, 86, 86, 16);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.textAlign = 'left';
+    ctx.fillStyle = P.legenda;
+    ctx.font = `700 26px ${FONTE}`;
+    ctx.fillText(rotulo, cx + 104, cy + 36);
+    ctx.fillStyle = P.metal_claro;
+    ctx.font = `500 24px ${FONTE}`;
+    ctx.fillText(cor.toLowerCase(), cx + 104, cy + 70);
+  });
+  y = cab;
+
+  // ---------- Vistas
+  secao('VISTAS', y, 'pose parado · expressão padrão');
+  y += tit;
+  F.vistas.forEach((it, i) => celula(it, M + i * (vW + GAP), y, vW, vH));
+  y += vH + legenda;
+
+  // ---------- Expressões
+  secao('EXPRESSÕES', y, `${F.expressoes.length} oficiais · únicas permitidas`);
+  y += tit;
+  F.expressoes.forEach((it, i) => celula(it, M + (i % 4) * (eW + GAP), y + Math.floor(i / 4) * (eH + legenda), eW, eH));
+  y += 2 * (eH + legenda);
+
+  // ---------- Poses
+  secao('POSES', y, `${F.poses.length} oficiais · base de toda animação`);
+  y += tit;
+  F.poses.forEach((it, i) => celula(it, M + i * (pW + GAP), y, pW, pH));
+  y += pH + legenda + 40;
+
+  // ---------- Regras
+  ctx.fillStyle = P.pedra_escura;
+  retRedondo(M, y, LARG, regrasH - 20, 22);
+  ctx.fill();
+  ctx.strokeStyle = P.destaque;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  ctx.textAlign = 'left';
+  ctx.fillStyle = P.destaque;
+  ctx.font = `900 40px ${FONTE}`;
+  ctx.fillText('REGRAS DESTE PERSONAGEM', M + 50, y + 70);
+  let ry = y + 130;
+  ctx.font = fRegra;
+  linhasRegras.forEach((linhas) => {
+    ctx.fillStyle = P.destaque;
+    ctx.beginPath();
+    ctx.arc(M + 64, ry - 10, 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = P.legenda;
+    linhas.forEach((l, i) => ctx.fillText(l, M + 90, ry + i * 46));
+    ry += linhas.length * 46 + 14;
+  });
+}
+
+window.VIDEO = { largura: W, altura: H, fps: 30, duracao: 1 };
+window.desenharQuadro = () => desenhar();
+</script>
+</body>
+</html>
