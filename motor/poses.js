@@ -41,7 +41,7 @@ export function misturarPoses(personagem, a, b, t) {
   const lerp3 = (p, q, d) => (p || d).map((v, i) => v + ((q || d)[i] - v) * t);
   return {
     juntas,
-    raiz: { pos: lerp3(ra.pos, rb.pos, [0, 0, 0]), rot: lerp3(ra.rot, rb.rot, [0, 0, 0]), ordem: (t < 0.5 ? ra.ordem : rb.ordem) || 'XYZ' },
+    raiz: { pos: lerp3(ra.pos, rb.pos, [0, 0, 0]), rot: lerp3(ra.rot, rb.rot, [0, 0, 0]), ordem: (t < 0.5 ? ra.ordem : rb.ordem) || 'YXZ' },
     sombra: lerp3(a.sombra, b.sombra, [1, 1]),
     extras: t < 0.5 ? a.extras : b.extras,
   };
@@ -95,4 +95,18 @@ export function atualizarSombra(personagem, escala = [1, 1]) {
   personagem.getWorldQuaternion(_q).invert();
   sombra.quaternion.copy(_q).multiply(_deitar);
   sombra.scale.set(escala[0], escala[1], 1);
+}
+
+// Espelha uma pose (lado E <-> D). Usado para alternar passos no ciclo de caminhada.
+export function espelharPose(pose) {
+  const troca = (n) => n.replace(/E$/, '\u0000').replace(/D$/, 'E').replace('\u0000', 'D');
+  const juntas = {};
+  for (const [n, v] of Object.entries(pose.juntas || {})) juntas[troca(n)] = [v[0], -v[1], -v[2]];
+  const r = pose.raiz || {};
+  return {
+    ...pose,
+    juntas,
+    raiz: { ...r, pos: r.pos ? [-r.pos[0], r.pos[1], r.pos[2]] : undefined, rot: r.rot ? [r.rot[0], -r.rot[1], -r.rot[2]] : undefined },
+    extras: pose.extras ? Object.fromEntries(Object.entries(pose.extras).map(([k, v]) => [troca(k), v])) : undefined,
+  };
 }

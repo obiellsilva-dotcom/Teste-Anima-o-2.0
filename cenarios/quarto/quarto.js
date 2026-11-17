@@ -12,18 +12,27 @@ import { criarCama, criarCriadoMudo, luzesQuarto, MEDIDAS_CAMA } from '../cama/c
 
 const LX = 7, LZ = 6, ALT = 7.5;          // meia largura, meia profundidade, pé-direito
 const CAMA = { x: 0.2, z: -LZ + MEDIDAS_CAMA.comprimento / 2 + 0.3 };
+const PORTA = { x: 5.4, dxMacaneta: -0.72, yMacaneta: 2.45 };
 
 export const FICHA = {
   nome: 'quarto',
   titulo: 'Quarto',
-  descricao: 'Quarto do senhor à noite: cama de casal, criado-mudo com abajur, janela com luar, guarda-roupa.',
+  descricao: 'Quarto do senhor à noite: cama de casal, criado-mudo com abajur, janela com luar, guarda-roupa, porta com maçaneta.',
   cameras: {
     geral: { pos: [3.2, 6.6, 11.5], alvo: [-1.3, 2.6, -2.4], fov: 52 },
     janela: { pos: [3.5, 4.2, 7], alvo: [-6, 3.4, 0.6], fov: 44 },
+    porta_lado: { pos: [9.2, 3.5, -5.1], alvo: [4.3, 2.5, -3.9], fov: 46 },
+    // atrás da parede do fundo (ela só tem face para dentro): vê o rosto de quem está na porta
+    porta_dentro: { pos: [4.7, 3.7, -9.4], alvo: [4.4, 2.8, -4.25], fov: 42 },   // esconder 'porta_conjunto'
+    porta_frente: { pos: [5.2, 1.7, 3.8], alvo: [5.3, 1.5, -6], fov: 46 },
   },
   marcas: {
     centro: { pos: [-1.6, 0, 1.4], rotY: 0.25 },
-    deitado: { pos: [CAMA.x, MEDIDAS_CAMA.alturaColchao, CAMA.z - 0.15], rotY: -Math.PI / 2 },
+    // pés perto do pé da cama, cabeça no travesseiro (a raiz do personagem fica nos pés)
+    deitado: { pos: [CAMA.x, MEDIDAS_CAMA.alturaColchao, CAMA.z + 1.65], rotY: -Math.PI / 2 },
+    // De frente para a porta, com a mão D na altura da maçaneta (pose "puxando").
+    porta: { pos: [PORTA.x + PORTA.dxMacaneta - 0.49, 0, -LZ + 1.75], rotY: Math.PI },
+    olhando_porta: { pos: [3.0, 0, -0.6], rotY: Math.PI - 0.55 },
   },
   fundo: { topo: P.rodape, base: P.vazio },
   rim: { cor: P.luar, dir: [-2, 1.2, 0.5] },
@@ -163,6 +172,56 @@ export function montar(cena) {
     l.rotation.y = (aleatorio(i + 3) - 0.5) * 0.5;
     cena.add(l);
   }
+
+  // Porta do quarto (parede do fundo, à direita), com maçaneta destacável
+  // e fresta de luz + sombras de pés embaixo (escondidas; usadas no gancho).
+  const PX = PORTA.x, PZ = -LZ;
+  const conjunto = new THREE.Group();
+  conjunto.name = 'porta_conjunto';
+  cena.add(conjunto);
+  const batente = peca(new RoundedBoxGeometry(2.6, 4.9, 0.22, 2, 0.05), P.madeira, { nome: 'batente' });
+  batente.position.set(PX, 2.45, PZ + 0.08);
+  batente.receiveShadow = true;
+  conjunto.add(batente);
+  const folha = peca(new RoundedBoxGeometry(2.1, 4.5, 0.16, 3, 0.06), P.madeira_escura, { nome: 'porta_quarto' });
+  folha.position.set(PX, 2.25, PZ + 0.2);
+  folha.receiveShadow = true;
+  conjunto.add(folha);
+  for (const y of [1.3, 3.2]) {
+    const almofada = peca(new RoundedBoxGeometry(1.5, 1.4, 0.06, 2, 0.04), P.madeira, { nome: 'porta_painel' });
+    almofada.position.set(PX, y, PZ + 0.3);
+    conjunto.add(almofada);
+  }
+  const roseta = peca(new THREE.CylinderGeometry(0.12, 0.12, 0.04, 16), P.ouro, { nome: 'roseta' });
+  roseta.rotation.x = Math.PI / 2;
+  roseta.position.set(PX + PORTA.dxMacaneta, PORTA.yMacaneta, PZ + 0.3);
+  conjunto.add(roseta);
+  const macaneta = peca(new THREE.SphereGeometry(0.13, 16, 12), P.ouro, { nome: 'macaneta' });
+  macaneta.position.set(PX + PORTA.dxMacaneta, PORTA.yMacaneta, PZ + 0.42);
+  cena.add(macaneta);
+  const fresta = new THREE.Mesh(new THREE.PlaneGeometry(2.0, 0.06), matEmissivo(P.janela_luz));
+  fresta.name = 'fresta';
+  fresta.position.set(PX, 0.03, PZ + 0.3);
+  fresta.visible = false;
+  cena.add(fresta);
+  const leque = new THREE.Shape();
+  leque.moveTo(-1.0, 0); leque.lineTo(1.0, 0); leque.lineTo(1.8, 2.6); leque.lineTo(-1.8, 2.6); leque.closePath();
+  const luzChao = new THREE.Mesh(new THREE.ShapeGeometry(leque), new THREE.MeshBasicMaterial({ color: P.lampada, transparent: true, opacity: 0.22, blending: THREE.AdditiveBlending, depthWrite: false }));
+  luzChao.name = 'fresta_luz';
+  luzChao.rotation.x = -Math.PI / 2;
+  luzChao.position.set(PX, 0.025, PZ + 0.3);
+  luzChao.visible = false;
+  cena.add(luzChao);
+  const sombras = new THREE.Group();
+  sombras.name = 'sombras_porta';
+  for (const dx of [-0.45, 0.4]) {
+    const s = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 1.4), new THREE.MeshBasicMaterial({ color: P.vazio, transparent: true, opacity: 0.85, depthWrite: false }));
+    s.rotation.x = -Math.PI / 2;
+    s.position.set(PX + dx, 0.035, PZ + 0.95);
+    sombras.add(s);
+  }
+  sombras.visible = false;
+  cena.add(sombras);
 
   luzesQuarto(cena, criado.position.clone().add(criado.userData.luz), { luarDe: [-14, 9, 1] });
   return { atualizar() {} };

@@ -58,9 +58,11 @@ const tit = 110;                                // título de seção
 const legenda = 70;
 const vW = (LARG - 3 * GAP) / 4, vH = vW * 16 / 9;
 const eW = (LARG - 3 * GAP) / 4, eH = eW;
-const pW = (LARG - 5 * GAP) / 6, pH = pW * 16 / 9;
+const pCols = F.poses.length <= 6 ? F.poses.length : Math.ceil(F.poses.length / 2);
+const pRows = Math.ceil(F.poses.length / pCols);
+const pW = (LARG - (pCols - 1) * GAP) / pCols, pH = pW * 16 / 9;
 const regrasH = 90 + nRegras * 46 + F.regras.length * 14 + 50;
-const H = Math.round(cab + tit + vH + legenda + tit + 2 * (eH + legenda) + tit + pH + legenda + 40 + regrasH + M);
+const H = Math.round(cab + tit + vH + legenda + tit + 2 * (eH + legenda) + tit + pRows * (pH + legenda) + 40 + regrasH + M);
 
 tela.width = W; tela.height = H;
 ctx = tela.getContext('2d');
@@ -167,8 +169,8 @@ function desenhar() {
   // ---------- Poses
   secao('POSES', y, `${F.poses.length} oficiais · base de toda animação`);
   y += tit;
-  F.poses.forEach((it, i) => celula(it, M + i * (pW + GAP), y, pW, pH));
-  y += pH + legenda + 40;
+  F.poses.forEach((it, i) => celula(it, M + (i % pCols) * (pW + GAP), y + Math.floor(i / pCols) * (pH + legenda), pW, pH));
+  y += pRows * (pH + legenda) + 40;
 
   // ---------- Regras
   ctx.fillStyle = P.pedra_escura;

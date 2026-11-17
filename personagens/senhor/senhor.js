@@ -24,7 +24,7 @@ export { POSES };
 export const FICHA = {
   nome: 'senhor',
   titulo: 'O Senhor',
-  versao: 1,
+  versao: 2,
   descricao: '54 anos. Acordou milionário depois de anos trabalhando. Alegre, cuidadoso, gentil e muito trabalhador.',
   expressaoPadrao: 'feliz',
   expressoes: ['neutro', 'feliz', 'espanto', 'medo', 'raiva', 'determinado', 'cansado', 'rindo'],
@@ -33,7 +33,7 @@ export const FICHA = {
     'Use sempre este modelo (personagens/senhor/senhor.js). Nunca recrie, redesenhe ou troque peças.',
     'Proporção fixa: 3,93 C de altura · cabeça 1 C · barriga 1,33 C de largura · pernas retas.',
     'Cores fixas: pele #d8975f · cabelo/sobrancelhas #ebe7e0 · camisa #e3d5b3 · calça #3f5d7d · couro #3e2a20 · ouro #d9a53a.',
-    'Só as 8 expressões e as 6 poses desta ficha. Poses novas: criar em poses.js e regerar a ficha.',
+    'Só as 8 expressões e as 8 poses desta ficha. Poses novas: criar em poses.js e regerar a ficha.',
     'Mãos em luva sem dedos; dedo indicador só na pose "apontando". Relógio de ouro sempre no pulso esquerdo.',
     'Poder: sempre na cor magia #4ff5cf, entre as mãos, com partículas em órbita.',
   ],

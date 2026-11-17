@@ -29,3 +29,15 @@
   (em `motor/poses.js`) recoloca a sombra deitada no chão, sob o quadril.
 - `ShapeGeometry` (boca de riso em D) é plana: precisa sair ~0,01 C da superfície da cabeça para
   não sumir dentro da curvatura.
+- Motor de roteiros: `render.js` + `motor/player.html`. A duração sai das falas
+  (`motor/tempo.js`); `--prancha` dá 1 quadro por cena em ~11 s e evita renderizar o vídeo
+  inteiro para conferir enquadramento.
+- Cenário cortado: paredes são planos de um lado só, então uma câmera ATRÁS da parede enxerga o
+  quarto (boa para ver o rosto de quem está de frente para uma porta). Objetos sólidos na parede
+  (porta, batente) precisam ser escondidos nesse plano (`visivel: false`).
+- Raiz do personagem fica nos pés: na pose "caido" o corpo se estende 3,9 C a partir da marca;
+  a marca de deitar fica perto do PÉ da cama, não no meio.
+- Cabeça grande (chibi) + braços curtos: "erguendo" com cotovelo dobrado deixa as mãos abaixo do
+  topo da cabeça. Braços retos para cima levam as mãos a ~3,9 C, logo acima da cabeça.
+- Câmera ao lado da rua em x>8 cai dentro das casas/árvores; usar câmeras dentro da faixa da rua.
+- Legenda com `|` no texto força a quebra dos blocos (o automático às vezes gera 4 palavras).

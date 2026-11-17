@@ -79,6 +79,39 @@ export const POSES = {
     },
   },
 
+  // (v2) Erguendo algo pesado acima da cabeça: braços para cima, joelhos levemente dobrados.
+  erguendo: {
+    titulo: 'Erguendo',
+    ficha: { vista: 'frente', elev: 4 },
+    expressao: 'determinado',
+    raiz: { pos: [0, -0.07, 0] },
+    juntas: {
+      tronco: [-0.06, 0, 0],
+      cabeca: [-0.28, 0, 0],
+      ombroE: [-0.12, 0, 3.0], cotoveloE: [0, 0, 0.04], maoE: [0, 0, 0.3],
+      ombroD: [-0.12, 0, -3.0], cotoveloD: [0, 0, -0.04], maoD: [0, 0, -0.3],
+      coxaE: [-0.12, 0, 0.18], joelhoE: [0.3, 0, 0], peE: [-0.18, 0, 0],
+      coxaD: [0.02, 0, -0.18], joelhoD: [0.3, 0, 0], peD: [-0.32, 0, 0],
+    },
+  },
+
+  // (v2) Puxando algo com a mão D (porta, corda), corpo inclinado para trás.
+  puxando: {
+    titulo: 'Puxando',
+    ficha: { vista: 'tres_quartos' },
+    expressao: 'determinado',
+    raiz: { pos: [0, -0.04, 0] },
+    juntas: {
+      quadril: [0, 0.1, 0],
+      tronco: [-0.16, 0.15, 0],
+      cabeca: [0.08, -0.1, 0],
+      ombroD: [-1.35, 0, -0.12], cotoveloD: [-0.25, 0, 0],
+      ombroE: [0.4, 0, 0.5], cotoveloE: [-0.45, 0, -0.3],
+      coxaD: [-0.3, 0, 0], joelhoD: [0.2, 0, 0], peD: [0.1, 0, 0],
+      coxaE: [0.25, 0, 0], joelhoE: [0.15, 0, 0], peE: [-0.4, 0, 0],
+    },
+  },
+
   // Caído de costas no chão, cabeça para a esquerda da tela, joelho E dobrado.
   caido: {
     titulo: 'Caído',

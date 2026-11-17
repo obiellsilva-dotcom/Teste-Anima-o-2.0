@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Tocador de roteiro</title>
+<link rel="icon" href="data:,">
+<script>addEventListener("error", e => { window.__erroFatal = e.message; }); addEventListener("unhandledrejection", e => { window.__erroFatal = String(e.reason && e.reason.message || e.reason); });</script>
+<style>html, body { margin: 0; background: #000; } canvas { display: block; } #gl { display: none; }</style>
+<script type="importmap">
+{ "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<canvas id="tela" width="1080" height="1920"></canvas>
+<canvas id="gl"></canvas>
+<script type="module">
+// Tocador: transforma um roteiro (roteiros/**/*.js) em quadros. Usado por render.js.
+// Parâmetro: ?roteiro=roteiros/super_forca/parte1.js
+// Formato do roteiro: ver roteiros/LEIA-ME.md
+import * as THREE from 'three';
+import { RIM, CONTORNO } from '/motor/toon.js';
+import { aplicarPose, misturarPoses, espelharPose } from '/motor/poses.js';
+import { PALETA as P } from '/motor/paleta.js';
+import { estimarFala, bocaNoInstante, FPS } from '/motor/tempo.js';
+import { desenharLegenda, carregarFonteLegenda } from '/motor/legenda.js';
+import { fundo2d } from '/motor/cena2d.js';
+
+const W = 1080, H = 1920;
+const q = new URLSearchParams(location.search);
+const caminhoRoteiro = q.get('roteiro');
+if (!caminhoRoteiro) throw new Error('Falta ?roteiro=');
+await carregarFonteLegenda();
+const R = (await import('/' + caminhoRoteiro)).default;
+
+const suave = (x) => { const t = Math.min(Math.max(x, 0), 1); return t * t * (3 - 2 * t); };
+const EASE = {
+  suave, linear: (x) => Math.min(Math.max(x, 0), 1),
+  entrada: (x) => Math.pow(Math.min(Math.max(x, 0), 1), 3),
+  saida: (x) => 1 - Math.pow(1 - Math.min(Math.max(x, 0), 1), 3),
+};
+
+// ---------------- Linha do tempo
+let t = 0;
+const cenas = R.cenas.map((c, i) => {
+  const inicio = t;
+  let tf = c.inicioFalas ?? 0.15;
+  const falas = (c.falas || []).map((f) => {
+    const t0 = f.t ?? tf;
+    const est = estimarFala(f.texto, t0);
+    tf = est.fim + (f.pausaDepois ?? 0.08);
+    return { ...f, ...est };
+  });
+  const fimFalas = falas.length ? falas[falas.length - 1].fim : 0;
+  const dur = Math.max(c.duracao || 0, fimFalas + (c.respiro ?? 0.35));
+  t += dur;
+  return { ...c, id: c.id || `cena${i + 1}`, indice: i, inicio, fim: t, dur, falas };
+});
+const DURACAO = t;
+window.LINHA_DO_TEMPO = cenas.map(c => ({ id: c.id, tipo: c.tipo, inicio: c.inicio, fim: c.fim, falas: c.falas.map(f => f.texto) }));
+
+// ---------------- 3D
+const tela = document.getElementById('tela');
+const ctx = tela.getContext('2d');
+const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('gl'), antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+renderer.setClearColor(0x000000, 0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+CONTORNO.uResolucao.value.set(W, H);
+
+const modulos = {};
+async function modulo(caminho) { return (modulos[caminho] ||= await import(caminho)); }
+
+let atual = null;   // estado da cena 3D montada
+
+async function montar3d(c) {
+  const modC = await modulo(`/cenarios/${c.cenario}/${c.cenario}.js`);
+  const FC = modC.FICHA;
+  const cena = new THREE.Scene();
+  const cenario = modC.montar(cena);
+  const pers = {};
+  for (const p of c.personagens || []) {
+    const modP = await modulo(`/personagens/${p.nome}/${p.nome}.js`);   // ficha obrigatória
+    const obj = modP.default();
+    cena.add(obj);
+    for (const ch of p.chaves || []) {
+      if (ch.pose && !obj.userData.poses[ch.pose]) throw new Error(`Cena ${c.id}: pose fora da ficha de ${p.nome}: "${ch.pose}"`);
+    }
+    pers[p.nome] = { def: p, obj, ficha: modP.FICHA };
+  }
+  const efeitos = [];
+  for (const e of c.efeitos || []) {
+    const modE = await modulo(`/efeitos/${e.tipo}/${e.tipo}.js`);
+    const fx = modE.default({ ...e.opcoes });
+    fx.position.set(...(e.pos || [0, 0, 0]));
+    cena.add(fx);
+    efeitos.push({ def: e, fx });
+  }
+  const camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 300);
+  return { c, FC, cena, cenario, pers, efeitos, camera };
+}
+
+function interpChaves(chaves, tl, campo) {
+  const ks = chaves.filter(k => k[campo] !== undefined);
+  if (!ks.length) return null;
+  if (tl <= ks[0].t) return ks[0][campo];
+  for (let i = 1; i < ks.length; i++) {
+    if (tl < ks[i].t) {
+      const a = ks[i - 1], b = ks[i];
+      const u = (EASE[b.ease || 'suave'])((tl - a.t) / (b.t - a.t));
+      const va = a[campo], vb = b[campo];
+      return Array.isArray(va) ? va.map((v, j) => v + (vb[j] - v) * u) : va + (vb - va) * u;
+    }
+  }
+  return ks[ks.length - 1][campo];
+}
+
+function piscadaEm(tl, semente) {
+  // piscar a cada 2,5–4 s (guia 4.2): 4 quadros 1 -> 0,1 -> 0,1 -> 1
+  let tp = 0.8 + (semente % 7) * 0.2;
+  let i = 0;
+  while (tp < tl + 0.2) {
+    const d = (tl - tp) * FPS;
+    if (d >= 0 && d < 4) return [0.5, 1, 1, 0.5][Math.floor(d)];
+    const r = Math.sin((semente + i) * 127.1) * 43758.5453;
+    tp += 2.5 + (r - Math.floor(r)) * 1.5;
+    i++;
+  }
+  return 0;
+}
+
+function atualizarPersonagem(st, nome, tl) {
+  const { def, obj, ficha } = st.pers[nome];
+  const poses = obj.userData.poses;
+  const chaves = def.chaves || [{ t: 0, pose: 'parado' }];
+  // base (onde ele está)
+  const marca = st.FC.marcas[def.marca || Object.keys(st.FC.marcas)[0]];
+  if (!marca && !def.caminho) throw new Error(`Cena ${st.c.id}: marca inexistente "${def.marca}"`);
+  let pos = marca ? marca.pos.slice() : [0, 0, 0];
+  let rotY = marca ? marca.rotY || 0 : 0;
+  if (def.caminho) {
+    pos = interpChaves(def.caminho, tl, 'pos') || pos;
+    const r = interpChaves(def.caminho, tl, 'rotY');
+    if (r !== null) rotY = r;
+  }
+  // pose: mistura da anterior para a atual
+  const comPose = chaves.filter(k => k.pose);
+  let pose = poses[comPose[0]?.pose || 'parado'];
+  for (let i = 0; i < comPose.length; i++) {
+    const k = comPose[i];
+    if (tl < k.t) break;
+    const anterior = i > 0 ? poses[comPose[i - 1].pose] : poses[k.pose];
+    pose = misturarPoses(obj, anterior, poses[k.pose], suave((tl - k.t) / (k.duracao ?? 0.25)));
+    pose.sombra = poses[k.pose].sombra;
+    pose.extras = poses[k.pose].extras;
+  }
+  // caminhada: alterna "andando" e seu espelho
+  const andar = def.andar;
+  if (andar && tl >= andar.de && tl <= andar.ate) {
+    const fase = ((tl - andar.de) / (andar.ciclo ?? 0.8)) * Math.PI * 2;
+    const base = poses.andando;
+    pose = misturarPoses(obj, base, espelharPose(base), (1 - Math.cos(fase)) / 2);
+    pos[1] += 0.05 * Math.abs(Math.sin(fase));
+  }
+  aplicarPose(obj, pose, { base: { pos: new THREE.Vector3(...pos), rotY } });
+  // respiração (guia 11)
+  obj.userData.juntas.tronco.scale.y = 1 + 0.015 * Math.sin((tl + st.c.inicio) * Math.PI * 2 / 2.4);
+  // expressão, boca, piscar
+  let expressao = ficha.expressaoPadrao;
+  for (const k of chaves) if (k.expressao && tl >= k.t) expressao = k.expressao;
+  const rosto = obj.userData.rosto;
+  rosto.definirExpressao(expressao);
+  const fala = st.c.falas.find(f => f.quem === nome && tl >= f.inicio && tl < f.fim);
+  const boca = bocaNoInstante(fala, tl);
+  if (boca) rosto.definirBoca(boca);
+  rosto.piscar(def.semPiscar ? 0 : piscadaEm(tl + st.c.inicio, nome.length * 13 + st.c.indice));
+}
+
+function resolverCamera(st, cfg, tl) {
+  const FC = st.FC;
+  const nomeada = (n) => { const c = FC.cameras[n]; if (!c) throw new Error(`Cena ${st.c.id}: câmera inexistente "${n}"`); return c; };
+  const norm = (x) => (typeof x === 'string' ? nomeada(x) : x);
+  const relativa = (r) => {
+    // câmera relativa a um personagem: { personagem, tipo: 'rosto'|'corpo', dist, lado, altura }
+    const { obj } = st.pers[r.personagem];
+    obj.updateWorldMatrix(true, true);
+    const frente = new THREE.Vector3(0, 0, 1).applyQuaternion(obj.getWorldQuaternion(new THREE.Quaternion())).setY(0).normalize();
+    const ladoV = new THREE.Vector3(frente.z, 0, -frente.x);
+    let alvo;
+    if (r.tipo === 'corpo') { alvo = obj.getWorldPosition(new THREE.Vector3()); alvo.y += 2.0 + (r.altura || 0); }
+    else { alvo = obj.userData.juntas.cabeca.getWorldPosition(new THREE.Vector3()); alvo.y += 0.45 + (r.altura || 0); }
+    const dist = r.dist ?? (r.tipo === 'corpo' ? 9 : 3.4);
+    const pos = alvo.clone().addScaledVector(frente, dist).addScaledVector(ladoV, (r.lado ?? 0.3) * dist).add(new THREE.Vector3(0, (r.subir ?? 0.05) * dist, 0));
+    return { pos: pos.toArray(), alvo: alvo.toArray(), fov: r.fov ?? (r.tipo === 'corpo' ? 40 : 34) };
+  };
+  const pegar = (x) => { const c = norm(x); return c.personagem ? relativa(c) : c; };
+  let de, para;
+  if (typeof cfg === 'string' || cfg.pos || cfg.personagem) { de = pegar(cfg); para = null; }
+  else { de = pegar(cfg.de); para = cfg.para ? pegar(cfg.para) : null; }
+  const u = (EASE[cfg.ease || 'suave'])(tl / st.c.dur);
+  let pos = new THREE.Vector3(...de.pos), alvo = new THREE.Vector3(...de.alvo), fov = de.fov || 45;
+  if (para) {
+    pos.lerp(new THREE.Vector3(...para.pos), u);
+    alvo.lerp(new THREE.Vector3(...para.alvo), u);
+    fov += ((para.fov || 45) - fov) * u;
+  }
+  // câmera nunca parada (guia 10): aproximação lenta padrão de 4% na cena
+  const zoom = cfg.zoom ?? (para ? 0 : 0.04);
+  pos.sub(alvo).multiplyScalar(1 - zoom * u).add(alvo);
+  return { pos, alvo, fov };
+}
+
+function vinheta(forca) {
+  const g = ctx.createRadialGradient(W / 2, H / 2, Math.hypot(W, H) * 0.5 * 0.45, W / 2, H / 2, Math.hypot(W, H) * 0.5);
+  g.addColorStop(0, 'rgba(0,0,0,0)');
+  g.addColorStop(1, `rgba(0,0,0,${forca})`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function fundoCenario(FC) {
+  const f = FC.fundo || {};
+  const g = ctx.createLinearGradient(0, 0, 0, H * 0.75);
+  g.addColorStop(0, f.topo || P.vazio);
+  g.addColorStop(1, f.base || P.vazio);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  if (f.sol) {
+    const x = f.sol.x * W, y = f.sol.y * H;
+    const gs = ctx.createRadialGradient(x, y, 0, x, y, W * 0.7);
+    gs.addColorStop(0, 'rgba(255,240,210,1)'); gs.addColorStop(0.08, 'rgba(255,200,130,0.9)');
+    gs.addColorStop(0.35, 'rgba(255,170,100,0.35)'); gs.addColorStop(1, 'rgba(255,150,90,0)');
+    ctx.fillStyle = gs; ctx.fillRect(0, 0, W, H);
+  }
+}
+
+function selo(s, tl) {
+  if (!s || tl < (s.t ?? 0)) return;
+  const idade = tl - (s.t ?? 0);
+  const k = Math.min(idade / 0.25, 1);
+  const esc = k < 1 ? 0.6 + 0.5 * k - 0.1 * Math.max(0, k - 0.8) * 5 : 1;
+  ctx.save();
+  ctx.translate(W / 2, H * (s.y ?? 0.42));
+  ctx.scale(esc, esc);
+  ctx.globalAlpha = Math.min(1, idade / 0.15);
+  ctx.font = `800 120px "Barlow Condensed", sans-serif`;
+  const w = ctx.measureText(s.texto).width + 110;
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 30; ctx.shadowOffsetY = 12;
+  ctx.fillStyle = 'rgba(11,14,20,0.88)';
+  ctx.beginPath(); ctx.roundRect(-w / 2, -95, w, 190, 28); ctx.fill();
+  ctx.shadowColor = 'transparent';
+  ctx.strokeStyle = P.destaque; ctx.lineWidth = 8;
+  ctx.beginPath(); ctx.roundRect(-w / 2, -95, w, 190, 28); ctx.stroke();
+  ctx.fillStyle = P.legenda; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(s.texto, 0, 4);
+  if (s.sub) {
+    ctx.font = `800 46px "Barlow Condensed", sans-serif`;
+    ctx.fillStyle = P.destaque;
+    ctx.fillText(s.sub, 0, 150);
+  }
+  ctx.restore();
+}
+
+function legenda(c, tl) {
+  for (const f of c.falas) {
+    for (const b of f.blocos) {
+      if (tl >= b.inicio && tl < b.fim) {
+        desenharLegenda(ctx, { texto: b.texto, destaque: f.destaque || [], zona: f.zona || c.zonaLegenda || 'baixa', idade: tl - b.inicio });
+        return;
+      }
+    }
+  }
+}
+
+const corMagia = new THREE.Color(P.magia);
+
+window.VIDEO = { largura: W, altura: H, fps: FPS, duracao: DURACAO };
+window.desenharQuadro = async (n) => {
+  const tg = n / FPS;
+  const c = cenas.find(x => tg >= x.inicio && tg < x.fim) || cenas[cenas.length - 1];
+  const tl = tg - c.inicio;
+
+  if (c.tipo === '2d') {
+    fundo2d(ctx, tl);
+    c.desenhar?.(ctx, tl, c);
+    vinheta(0.35);
+  } else {
+    if (!atual || atual.c !== c) atual = await montar3d(c);
+    const st = atual;
+    st.cenario.atualizar(tg);
+    for (const nome of Object.keys(st.pers)) atualizarPersonagem(st, nome, tl);
+    // objetos animados
+    for (const o of c.objetos || []) {
+      const obj = st.cena.getObjectByName(o.nome);
+      if (!obj) throw new Error(`Cena ${c.id}: objeto inexistente "${o.nome}"`);
+      const p = interpChaves(o.chaves, tl, 'pos'); if (p) obj.position.set(...p);
+      const r = interpChaves(o.chaves, tl, 'rot'); if (r) obj.rotation.set(...r);
+      for (const k of o.chaves) if (k.visivel !== undefined && tl >= k.t) obj.visible = k.visivel;
+      const seg = o.chaves.filter(k => k.seguir && tl >= k.t).pop();
+      if (seg) {
+        const { obj: po } = st.pers[seg.seguir.personagem || Object.keys(st.pers)[0]];
+        po.updateWorldMatrix(true, true);
+        obj.position.copy(po.userData.juntas[seg.seguir.junta].localToWorld(new THREE.Vector3(...(seg.seguir.offset || [0, 0, 0]))));
+      }
+    }
+    // efeitos
+    let tremor = 0, flash = 0, aura = 0;
+    for (const { def, fx } of st.efeitos) {
+      const r = fx.userData.atualizar(tl - (def.t || 0)) || {};
+      tremor += r.tremor || 0; flash = Math.max(flash, r.flash || 0); aura = Math.max(aura, r.aura || 0);
+    }
+    // contra-luz do cenário (+ aura de efeitos)
+    RIM.uRimCor.value.set(st.FC.rim?.cor || '#7fa4d9').lerp(corMagia, aura);
+    RIM.uRimDir.value.set(...(st.FC.rim?.dir || [1, 1.2, -1.5])).normalize();
+    RIM.uRimForca.value = 0.85 + aura * 0.9;
+    RIM.uRimLimiar.value = 0.8 - aura * 0.2;
+    // câmera
+    const cam = resolverCamera(st, c.camera || Object.keys(st.FC.cameras)[0], tl);
+    st.camera.fov = cam.fov;
+    st.camera.updateProjectionMatrix();
+    st.camera.position.copy(cam.pos);
+    st.camera.lookAt(cam.alvo);
+    CONTORNO.uEspessura.value = cam.fov < 36 ? 3 : 2;
+    // desenho
+    fundoCenario(st.FC);
+    renderer.render(st.cena, st.camera);
+    const pad = tremor ? 16 : 0;
+    const dx = tremor, dy = tremor * 0.6;
+    ctx.drawImage(renderer.domElement, -pad + dx, -pad + dy, W + 2 * pad, H + 2 * pad);
+    vinheta(st.FC.vinheta ?? 0.55);
+    if (c.transicao === 'flash' && tl < 0.1) flash = Math.max(flash, 0.8 * (1 - tl / 0.1));
+    if (flash > 0) { ctx.fillStyle = `rgba(255,255,255,${flash})`; ctx.fillRect(0, 0, W, H); }
+  }
+  legenda(c, tl);
+  selo(c.selo, tl);
+};
+</script>
+</body>
+</html>

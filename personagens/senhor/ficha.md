@@ -1,4 +1,7 @@
-# Ficha oficial — O Senhor (v1)
+# Ficha oficial — O Senhor (v2 — aguardando aprovação)
+
+> **v2:** acrescenta as poses `erguendo` e `puxando` (pedidas pelo roteiro de Super Força).
+> Até aprovar, a v2 só vale para prévias em `previas/`. A v1 aprovada tinha as 6 primeiras poses.
 
 > **Regra obrigatória em todos os vídeos.** Qualquer cena com este personagem usa este modelo,
 > estas cores, estas expressões e estas poses. Mudou algo? Atualize a ficha primeiro
@@ -52,7 +55,7 @@ trabalhador. Expressão padrão: `feliz`.
 
 Valores em `motor/rosto.js` e no guia (seção 4.2). Para fala: `definirBoca('fechada' | 'meia' | 'aberta')`.
 
-## Poses oficiais (6)
+## Poses oficiais (8)
 
 | Pose | Nome no código | Expressão sugerida | Observação |
 |---|---|---|---|
@@ -61,7 +64,9 @@ Valores em `motor/rosto.js` e no guia (seção 4.2). Para fala: `definirBoca('fe
 | Correndo | `correndo` | determinado | passada no ar, tronco inclinado 17° |
 | Apontando | `apontando` | feliz | braço D esticado, **dedo indicador visível**, mão E na cintura |
 | Soltando poder | `poder` | determinado | mãos à frente; efeito `poder` entre as mãos |
-| Caído | `caido` | cansado | de costas, joelho E dobrado, sombra alongada |
+| Erguendo (v2) | `erguendo` | determinado | braços retos para cima: o objeto apoia nas mãos logo acima da cabeça (~3,95 C) |
+| Puxando (v2) | `puxando` | determinado | braço D à frente na altura do ombro, corpo inclinado para trás |
+| Caído | `caido` | cansado | de costas, joelho E dobrado, sombra alongada; a raiz fica nos pés |
 
 ## Como usar num vídeo
 

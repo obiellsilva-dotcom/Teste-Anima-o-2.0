@@ -68,7 +68,7 @@ export function criarCama({ cobertor = P.tecido_vinho } = {}) {
 
   // Onde o personagem deita (pose "caido" da ficha, cabeça no travesseiro).
   g.userData.marcas = {
-    deitado: { pos: [0, A, -0.15], rotY: -Math.PI / 2 },
+    deitado: { pos: [0, A, 1.65], rotY: -Math.PI / 2 },
   };
   return g;
 }
@@ -142,7 +142,7 @@ export const FICHA = {
     close: { pos: [4.8, 5.8, 6.4], alvo: [0.5, 1.9, -1.2], fov: 50 },
     travesseiro: { pos: [1.8, 3.2, 1.2], alvo: [0, 1.8, -2.2], fov: 40 },
   },
-  marcas: { deitado: { pos: [0, MEDIDAS_CAMA.alturaColchao, -0.15], rotY: -Math.PI / 2 } },
+  marcas: { deitado: { pos: [0, MEDIDAS_CAMA.alturaColchao, 1.65], rotY: -Math.PI / 2 } },
   fundo: { topo: P.rodape, base: P.vazio },
   rim: { cor: P.luar, dir: [-2, 1, -1] },
   vinheta: 0.6,

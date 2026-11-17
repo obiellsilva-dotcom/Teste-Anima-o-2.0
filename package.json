@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/obiellsilva-dotcom/Teste-Anima-o-2.0#readme",
   "dependencies": {
+    "@fontsource/barlow-condensed": "^5.3.0",
     "three": "^0.187.0"
   }
 }

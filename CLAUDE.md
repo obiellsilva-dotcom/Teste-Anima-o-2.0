@@ -20,9 +20,11 @@ vídeo, voz e legenda. Roteiros em JavaScript, motor em `motor/`, comando `rende
 
 ## Personagens aprovados
 
-- `senhor` — O Senhor, personagem principal (ficha v1).
+- `senhor` — O Senhor, personagem principal (ficha v1 aprovada; v2 com `erguendo` e `puxando` aguardando aprovação).
 
 ## Comandos
+
+- Vídeo de um roteiro: `node render.js roteiros/<serie>/parteN.js` (ver `roteiros/LEIA-ME.md`; `--prancha`, `--cena N`, `--quadro N`, `--final`)
 
 - Um quadro: `node motor/gravar.js "<pagina.html?params>" saida.png --quadro N`
 - Vídeo: `node motor/gravar.js <pagina.html> saida.mp4`
