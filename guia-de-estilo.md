@@ -67,6 +67,7 @@ não de cores novas. Nomes em `snake_case` são os nomes das constantes no códi
 | `pele_3` | `#a8693f` | Pele morena |
 | `pele_4` | `#6e4129` | Pele escura |
 | `cabelo` | `#2a1c17` | Cabelo, sobrancelhas |
+| `cabelo_branco` | `#ebe7e0` | Cabelo e sobrancelhas grisalhos/brancos |
 | `olho` | `#110f16` | Olhos, boca |
 | `couro` | `#6b4630` | Coletes, cintos, botas |
 | `couro_escuro` | `#3e2a20` | Tiras, detalhes de couro |
@@ -168,6 +169,10 @@ O pivô fica **na junta** (topo do membro), para que girar o pivô gire o membro
 
 Os elementos ficam **colados à superfície** da esfera (orientados pela normal), não flutuando.
 
+**Exceções por personagem:** a descrição de um personagem pode mudar formato de olho,
+espessura de sobrancelha, orelhas etc. Toda exceção fica escrita na ficha dele
+(`personagens/<nome>.md`, seção "Exceções ao guia"). Cores continuam só as da paleta.
+
 ### 4.2 Tabela de expressões
 
 Só sobrancelha, boca e altura do olho mudam. Ângulos positivos = ponta de dentro para cima.
@@ -213,9 +218,12 @@ Só sobrancelha, boca e altura do olho mudam. Ângulos positivos = ponta de dent
 
   | Faixa | Valor no gradientMap | Quando |
   |---|---|---|
-  | luz | 255 | N·L alto |
-  | meio | 150 | — |
-  | sombra | 70 | lado oposto à luz |
+  | luz | 255 | N·L > 0 |
+  | meio | 150 | −0,5 < N·L ≤ 0 |
+  | sombra | 70 | N·L ≤ −0,5 |
+
+  No código: textura de 4 texels `[70, 150, 255, 255]` (o Three.js mapeia N·L de −1 a 1 na
+  largura toda; 3 texels iguais deixariam meio rosto em meio-tom).
 
 - A sombra **esfria**: o ambiente `ambiente_frio` dá o tom azulado da faixa escura.
   Nunca escurecer por preto/cinza puro.

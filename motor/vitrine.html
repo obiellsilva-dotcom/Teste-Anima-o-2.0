@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Vitrine de personagem</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; background: #000; }
+  canvas { display: block; }
+  #gl { display: none; }
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<!-- O primeiro canvas é o gravado (2D: fundo + 3D composto). -->
+<canvas id="tela" width="1080" height="1920"></canvas>
+<canvas id="gl" width="1080" height="1920"></canvas>
+<script type="module">
+// Vitrine: mostra um personagem parado em fundo neutro, iluminação de estúdio.
+// Parâmetros: ?personagem=senhor&expressao=feliz&vista=frente|tres_quartos|perfil|costas
+import * as THREE from 'three';
+import { RIM, CONTORNO } from '/motor/toon.js';
+
+const W = 1080, H = 1920;
+const q = new URLSearchParams(location.search);
+const nome = q.get('personagem') || 'senhor';
+const expressao = q.get('expressao') || 'feliz';
+const vista = q.get('vista') || 'frente';
+
+const mod = await import(`/personagens/${nome}.js`);
+const criar = mod.default;
+const personagem = criar({ expressao });
+
+// Poses de teste das juntas (nomes do guia 3.4). ?pose=acenar
+const POSES = {
+  parado: () => {},
+  acenar: (j) => {
+    j.ombroD.rotation.set(0, 0, -2.5);
+    j.cotoveloD.rotation.set(0, 0, -0.6);
+    j.maoD.rotation.set(0, 0, 0.3);
+    j.cabeca.rotation.set(0.05, 0, -0.12);
+    j.tronco.rotation.set(0, 0, 0.04);
+    j.joelhoE.rotation.set(0.25, 0, 0);
+    j.coxaE.rotation.set(-0.2, 0, 0);
+  },
+};
+(POSES[q.get('pose') || 'parado'] || POSES.parado)(personagem.userData.juntas);
+
+const renderer = new THREE.WebGLRenderer({
+  canvas: document.getElementById('gl'), antialias: true, alpha: true, preserveDrawingBuffer: true,
+});
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+renderer.setClearColor(0x000000, 0);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+CONTORNO.uResolucao.value.set(W, H);
+
+const cena = new THREE.Scene();
+const giro = { frente: 0, tres_quartos: -0.6, perfil: -Math.PI / 2, costas: Math.PI }[vista] ?? 0;
+personagem.rotation.y = giro;
+cena.add(personagem);
+
+// Estúdio neutro: luz principal quente-clara, preenchimento frio, contra-luz para a borda.
+cena.add(new THREE.HemisphereLight('#c9d6ea', '#3b3634', 1.1));
+const principal = new THREE.DirectionalLight('#fff3e2', 2.4);
+principal.position.set(-2.5, 4.5, 9);
+principal.castShadow = q.get('sombras') !== '0';
+principal.shadow.mapSize.set(2048, 2048);
+Object.assign(principal.shadow.camera, { left: -3, right: 3, top: 5, bottom: -1, near: 0.5, far: 20 });
+principal.shadow.radius = 4;
+principal.shadow.bias = -0.0005;
+cena.add(principal);
+
+RIM.uRimCor.value.set('#9fc2ff');
+RIM.uRimDir.value.set(2.5, 1.2, -2).normalize();
+
+// Piso invisível que só recebe a sombra projetada.
+const piso = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.ShadowMaterial({ opacity: 0.22 }));
+piso.rotation.x = -Math.PI / 2;
+piso.receiveShadow = true;
+cena.add(piso);
+
+// Enquadramento: personagem inteiro ocupando ~70% da altura.
+const altura = personagem.userData.ficha?.altura ?? 4;
+const camera = new THREE.PerspectiveCamera(30, W / H, 0.1, 100);
+const dist = (altura / 0.7) / (2 * Math.tan(THREE.MathUtils.degToRad(15)));
+camera.position.set(0, altura * 0.5, dist);
+camera.lookAt(0, altura * 0.47, 0);
+
+const ctx = document.getElementById('tela').getContext('2d');
+
+function fundo() {
+  const g = ctx.createRadialGradient(W / 2, H * 0.45, 80, W / 2, H * 0.5, H * 0.75);
+  g.addColorStop(0, '#b4b8bf');
+  g.addColorStop(1, '#7c818a');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+window.VIDEO = { largura: W, altura: H, fps: 30, duracao: 1 };
+window.desenharQuadro = (n) => {
+  fundo();
+  renderer.render(cena, camera);
+  ctx.drawImage(renderer.domElement, 0, 0);
+};
+</script>
+</body>
+</html>
